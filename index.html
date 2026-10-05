@@ -64,14 +64,15 @@ function msgHtml(){const ns=Object.values(S.P).map(p=>esc(p.name)).filter(Boolea
  return (S.M||[]).map(m=>{const p=S.P[m.user_id],d=new Date(m.created_at);let b=esc(m.body);if(re)b=b.replace(re,x=>`<span class="mn">${x}</span>`);
  return `<div class="msg ${m.user_id===S.me?"mine":""}">${av(p,30)}<div class="grow"><div class="mu"><b>${esc(p?.name||"Ẩn danh")}</b> · ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")} ${d.getDate()}/${d.getMonth()+1}</div><div>${b}</div></div></div>`}).join("")}
 function updateMsgs(f){const el=$("#msgs");if(!el)return;const bot=f||el.scrollHeight-el.scrollTop-el.clientHeight<80;el.innerHTML=msgHtml()||'<div class="mu">Chưa có tin nhắn. Hãy mở đầu cuộc trò chuyện!</div>';if(bot)el.scrollTop=el.scrollHeight;markSeen()}
-function chatv(){return `<div class="card"><h3>💬 Trò chuyện nhóm</h3><div id="msgs"></div><div id="sg" style="margin-top:6px"></div><div style="display:flex;gap:8px"><input id="ci" placeholder="Nhắn tin, gõ @ để nhắc tên…" autocomplete="off" style="margin:0"><button class="p" data-a="send">Gửi</button></div></div>`}
+function chatv(){return `<div class="card"><h3>💬 Trò chuyện nhóm</h3><div id="msgs"></div><div id="sg" style="margin-top:6px"></div><div style="display:flex;gap:8px"><button class="s" data-a="atbtn" style="font-size:18px">@</button><input id="ci" placeholder="Nhắn tin, gõ @ để nhắc tên…" autocomplete="off" style="margin:0"><button class="p" data-a="send">Gửi</button></div></div>`}
 function chatInit(){updateMsgs(true)}
 async function sendMsg(){const i=$("#ci"),t=i.value.trim();if(!t)return;const ids=Object.entries(S.P).filter(([id,p])=>p.name&&t.includes("@"+p.name)).map(([id])=>id);i.value="";$("#sg").innerHTML="";
  try{await ck(sb.from("messages").insert({user_id:S.me,body:t,mentions:ids}));await load();updateMsgs(true)}catch(err){i.value=t;toast("Lỗi: "+(err.message||err.code))}}
 function tagName(n){const i=$("#ci"),pos=i.selectionStart,v=i.value,b=v.slice(0,pos).replace(/@([^@\n]*)$/,()=>"@"+n+" ");i.value=b+v.slice(pos);i.focus();i.setSelectionRange(b.length,b.length);$("#sg").innerHTML=""}
-document.addEventListener("input",e=>{if(e.target.id!=="ci")return;const v=e.target.value.slice(0,e.target.selectionStart),m=v.match(/@([^@\n]*)$/),sg=$("#sg");if(!m){sg.innerHTML="";return}const q=m[1].toLowerCase();sg.innerHTML=Object.entries(S.P).filter(([id,p])=>id!==S.me&&(p.name||"").toLowerCase().includes(q)).slice(0,5).map(([id,p])=>`<button class="s" data-a="tag" data-n="${esc(p.name)}" style="margin:0 6px 6px 0">@${esc(p.name)}</button>`).join("")});
+function showSug(){const i=$("#ci"),sg=$("#sg");if(!i||!sg)return;const v=i.value.slice(0,i.selectionStart),m=v.match(/@([^@\n]*)$/);if(!m){sg.innerHTML="";return}const q=m[1].toLowerCase(),r=Object.entries(S.P).filter(([id,p])=>(p.name||"").toLowerCase().includes(q)).slice(0,6);sg.innerHTML=r.length?r.map(([id,p])=>`<button class="s" data-a="tag" data-n="${esc(p.name)}" style="margin:0 6px 6px 0">@${esc(p.name)}${id===S.me?" (bạn)":""}</button>`).join(""):'<div class="mu">Không có thành viên khớp tên này. Thành viên cần lưu hồ sơ có tên thì mới gắn thẻ được.</div>'}
+document.addEventListener("input",e=>{if(e.target.id==="ci")showSug()});
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="ci"){e.preventDefault();sendMsg()}});
-document.addEventListener("pointerdown",e=>{if(e.target.closest('[data-a="tag"],[data-a="send"]'))e.preventDefault()});
+document.addEventListener("pointerdown",e=>{if(e.target.closest('[data-a="tag"],[data-a="send"],[data-a="atbtn"]'))e.preventDefault()});
 function wardGroups(){const g={};Object.values(S.P).forEach(p=>{if(p.ward&&!(p.share&&p.lat))(g[p.ward]=g[p.ward]||[]).push(p)});return g}
 const SEL0="Chạm vào ảnh trên bản đồ để xem ai ở phường đó.";
 function selHtml(){const g=wardGroups();return S.wsel&&g[S.wsel]?`<h3>📍 ${esc(S.wsel)}</h3>`+g[S.wsel].map(p=>`<div class="row">${av(p,32)}${esc(p.name)}</div>`).join(""):SEL0}
@@ -132,6 +133,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-a]")
  else if(a==="cropx")$("#crop").style.display="none";
  else if(a==="send")await sendMsg();
  else if(a==="tag")tagName(d.n);
+ else if(a==="atbtn"){const i=$("#ci"),q=i.selectionStart;i.value=i.value.slice(0,q)+"@"+i.value.slice(q);i.focus();i.setSelectionRange(q+1,q+1);showSug()}
  else if(a==="geo")await geocode();
  else if(a==="login"){await ck(sb.auth.signInWithPassword({email:$("#ae").value.trim(),password:$("#ap").value}))}
  else if(a==="signup"){const r=await ck(sb.auth.signUp({email:$("#ae").value.trim(),password:$("#ap").value}));if(!r.data.session)toast("Kiểm tra email để xác nhận tài khoản")}
