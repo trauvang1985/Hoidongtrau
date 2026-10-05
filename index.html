@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi"><head><meta charset="utf-8"><title>Hội Bạn Hà Nội</title><link rel="icon" href="data:,">
+<html lang="vi"><head><meta charset="utf-8"><title>Hội Pink Pumper</title><link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f4ef;--card:#fff;--tx:#1f2a24;--mu:#6b756f;--ac:#1d7a5a;--ac2:#e8f3ee;--bd:#e3e0d8;--wa:#b4531a;--wb:#fdf0e6}
@@ -30,7 +30,7 @@ canvas{border-radius:50%;touch-action:none;background:#ccc}
 nav{z-index:2000}#toast{z-index:3000}#crop{z-index:5000}#lm{height:380px;border-radius:12px;position:relative;z-index:0}
 #msgs{height:52vh;overflow-y:auto;padding:4px 0}.msg{display:flex;gap:8px;padding:6px 8px;border-radius:10px;margin-bottom:4px;white-space:pre-wrap;word-break:break-word}.msg.mine{background:var(--ac2)}.mn{background:var(--wb);color:var(--wa);border-radius:6px;padding:0 3px;font-weight:600}
 </style></head><body>
-<header>Hội Bạn Hà Nội <small id="hello"></small></header>
+<header>Hội Pink Pumper <small id="hello"></small></header>
 <main id="app"><div class="card mu">Đang tải…</div></main>
 <nav id="nav"></nav><div id="toast"></div>
 <div id="crop"><div><div class="mu" style="margin-bottom:8px">Kéo để căn ảnh, trượt để phóng to</div><canvas id="cv" width="240" height="240"></canvas><input type="range" id="zm" min="1" max="3" step="0.01" value="1"><button class="s" data-a="cropx">Hủy</button> <button class="p" data-a="cropok">Dùng ảnh này</button></div></div>
@@ -47,7 +47,7 @@ function nextBday(p){if(!p.bday)return null;const[y,m,d]=p.bday.split("-").map(N
 function bdays(){return Object.entries(S.P).map(([id,p])=>({p,b:nextBday(p)})).filter(x=>x.b).sort((a,b)=>a.b.days-b.b.days)}
 function cnt(poll){const c={};Object.values(S.V).forEach(v=>{const o=v.choices?.[poll.id];if(o)c[o]=(c[o]||0)+1});return c}
 function home(){const mine=S.P[S.me],al=[];
- if(!mine)al.push("Bạn chưa tạo hồ sơ. Vào tab Hồ sơ để khai báo phường và ngày sinh.");
+ if(!mine)al.push("Bạn chưa tạo hồ sơ. Vào tab Hồ sơ để khai báo phường và ngày sinh.");else if(mine.name==="Thành viên")al.push("Bạn chưa đặt tên hiển thị. Vào tab Hồ sơ để đổi tên, mọi người mới gắn thẻ @ bạn được trong Chat.");
  S.polls.filter(p=>p.closed).sort((a,b)=>(b.closedAt||0)-(a.closedAt||0)).slice(0,3).forEach(p=>{const o=p.options.find(o=>o.id===p.winner);al.push(`📌 Đã chốt ${p.kind==="time"?"thời gian":"địa điểm"} “${esc(p.title)}”: <b>${esc(o?.label)}</b>`)});
  const open=S.polls.filter(p=>!p.closed&&!S.V[S.me]?.choices?.[p.id]);if(open.length)al.push(`🗳️ Bạn chưa bình chọn ${open.length} mục. Vào tab Vote.`);
  const mm=mentionsMe();if(mm)al.push("💬 Có "+mm+" tin nhắn nhắc tên bạn trong Chat.");const bd=bdays().filter(x=>x.b.days<=45).slice(0,6);
@@ -137,8 +137,8 @@ document.addEventListener("click",async e=>{const t=e.target.closest("[data-a]")
  else if(a==="signup"){const r=await ck(sb.auth.signUp({email:$("#ae").value.trim(),password:$("#ap").value}));if(!r.data.session)toast("Kiểm tra email để xác nhận tài khoản")}
  else if(a==="logout"){await sb.auth.signOut()}
  else{
- if(a==="cropok"){const o=document.createElement("canvas");o.width=o.height=128;o.getContext("2d").drawImage($("#cv"),0,0,128,128);$("#crop").style.display="none";const p=S.P[S.me]||{};await up({name:p.name||"Thành viên",avatar:o.toDataURL("image/jpeg",.82)});toast("Đã cập nhật ảnh")}
- else if(a==="save"){const n=$("#fn").value.trim();if(!n)return toast("Nhập tên hiển thị");const sh=$("#fs").checked;if(sh&&!S.draft)return toast("Hãy tìm địa chỉ hoặc chạm bản đồ để đặt ghim");await up({name:n,ward:$("#fw").value||null,bday:$("#fb").value||null,hide_year:$("#fh").checked,address:sh?$("#fa").value.trim()||null:null,lat:sh?S.draft.lat:null,lng:sh?S.draft.lng:null,share_exact:sh});toast("Đã lưu hồ sơ");S.tab="home"}
+ if(a==="cropok"){const o=document.createElement("canvas");o.width=o.height=128;o.getContext("2d").drawImage($("#cv"),0,0,128,128);const nm=$("#fn").value.trim();if(!nm||nm==="Thành viên")return toast("Hãy nhập tên hiển thị trước khi đổi ảnh");$("#crop").style.display="none";await up({name:nm,avatar:o.toDataURL("image/jpeg",.82)});toast("Đã cập nhật ảnh")}
+ else if(a==="save"){const n=$("#fn").value.trim();if(!n||n==="Thành viên")return toast("Hãy nhập tên hiển thị của bạn");if(Object.entries(S.P).some(([id,p])=>id!==S.me&&(p.name||"").toLowerCase()===n.toLowerCase()))return toast("Tên này đã có người dùng, hãy thêm họ hoặc biệt danh");const sh=$("#fs").checked;if(sh&&!S.draft)return toast("Hãy tìm địa chỉ hoặc chạm bản đồ để đặt ghim");await up({name:n,ward:$("#fw").value||null,bday:$("#fb").value||null,hide_year:$("#fh").checked,address:sh?$("#fa").value.trim()||null:null,lat:sh?S.draft.lat:null,lng:sh?S.draft.lng:null,share_exact:sh});toast("Đã lưu hồ sơ");S.tab="home"}
  else if(a==="vote")await ck(sb.from("votes").upsert({user_id:S.me,poll_id:d.p,option_id:d.o}));
  else if(a==="newpoll"){const ops=$("#po").value.split("\n").map(x=>x.trim()).filter(Boolean),ti=$("#pt").value.trim();if(!ti||ops.length<2)return toast("Cần tiêu đề và ít nhất 2 lựa chọn");await ck(sb.from("polls").insert({created_by:S.me,title:ti,kind:$("#pk").value,options:ops.map(l=>({id:uid(),label:l}))}));toast("Đã đăng")}
  else if(a==="close"){e.stopPropagation();if(!confirm("Chốt lựa chọn này? Sau khi chốt sẽ không bình chọn thêm được."))return;await ck(sb.from("polls").update({closed:true,winner:d.o,closed_at:new Date().toISOString()}).eq("id",d.p));toast("Đã chốt")}
