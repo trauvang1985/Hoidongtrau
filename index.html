@@ -27,11 +27,14 @@ label{font-size:13px;color:var(--mu)}input[type=checkbox]{width:auto;margin-righ
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:90px;background:#222;color:#fff;padding:8px 14px;border-radius:99px;display:none;font-size:13px}
 #crop{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:9}#crop>div{background:var(--card);padding:14px;border-radius:14px;text-align:center}
 canvas{border-radius:50%;touch-action:none;background:#ccc}
+nav{z-index:2000}#toast{z-index:3000}#crop{z-index:5000}#lm{height:380px;border-radius:12px;position:relative;z-index:0}
+#msgs{height:52vh;overflow-y:auto;padding:4px 0}.msg{display:flex;gap:8px;padding:6px 8px;border-radius:10px;margin-bottom:4px;white-space:pre-wrap;word-break:break-word}.msg.mine{background:var(--ac2)}.mn{background:var(--wb);color:var(--wa);border-radius:6px;padding:0 3px;font-weight:600}
 </style></head><body>
 <header>Hội Bạn Hà Nội <small id="hello"></small></header>
 <main id="app"><div class="card mu">Đang tải…</div></main>
 <nav id="nav"></nav><div id="toast"></div>
 <div id="crop"><div><div class="mu" style="margin-bottom:8px">Kéo để căn ảnh, trượt để phóng to</div><canvas id="cv" width="240" height="240"></canvas><input type="range" id="zm" min="1" max="3" step="0.01" value="1"><button class="s" data-a="cropx">Hủy</button> <button class="p" data-a="cropok">Dùng ảnh này</button></div></div>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css"><script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 const SB_URL="https://egqtprkbhjqebfdxptha.supabase.co",SB_KEY="sb_publishable_ey4yXys9RSm7biKIsfW9gg_5WjdwYoi";// <- dán Project URL và anon key của bạn
@@ -47,17 +50,43 @@ function home(){const mine=S.P[S.me],al=[];
  if(!mine)al.push("Bạn chưa tạo hồ sơ. Vào tab Hồ sơ để khai báo phường và ngày sinh.");
  S.polls.filter(p=>p.closed).sort((a,b)=>(b.closedAt||0)-(a.closedAt||0)).slice(0,3).forEach(p=>{const o=p.options.find(o=>o.id===p.winner);al.push(`📌 Đã chốt ${p.kind==="time"?"thời gian":"địa điểm"} “${esc(p.title)}”: <b>${esc(o?.label)}</b>`)});
  const open=S.polls.filter(p=>!p.closed&&!S.V[S.me]?.choices?.[p.id]);if(open.length)al.push(`🗳️ Bạn chưa bình chọn ${open.length} mục. Vào tab Vote.`);
- const bd=bdays().filter(x=>x.b.days<=45).slice(0,6);
+ const mm=mentionsMe();if(mm)al.push("💬 Có "+mm+" tin nhắn nhắc tên bạn trong Chat.");const bd=bdays().filter(x=>x.b.days<=45).slice(0,6);
  return `${al.map(a=>`<div class="card alert">${a}</div>`).join("")}
  <div class="card"><h3>🎂 Sinh nhật sắp tới</h3>${bd.map(({p,b})=>`<div class="row">${av(p,38)}<div class="grow"><b>${esc(p.name)}</b><div class="mu">${b.d}/${b.m}${b.age?` · tròn ${b.age} tuổi`:""}</div></div><span class="tag">${b.days===0?"Hôm nay!":"còn "+b.days+" ngày"}</span></div>`).join("")||'<div class="mu">Chưa có sinh nhật trong 45 ngày tới.</div>'}</div>
  <div class="card"><h3>👥 Thành viên (${Object.keys(S.P).length})</h3>${Object.values(S.P).map(p=>`<div class="row">${av(p,34)}<div class="grow">${esc(p.name)}<div class="mu">${esc(p.ward||"Chưa chọn phường")}</div></div></div>`).join("")||'<div class="mu">Chưa có ai.</div>'}</div>`}
-function mapv(){const la0=20.86,la1=21.18,lo0=105.42,lo1=105.98,w=560,h=500,X=lo=>(lo-lo0)/(lo1-lo0)*w,Y=la=>(la1-la)/(la1-la0)*h,g={};
- Object.values(S.P).forEach(p=>{if(p.ward)(g[p.ward]=g[p.ward]||[]).push(p)});
- const z=S.zoom,s=1/Math.sqrt(z);
- const pins=W.filter(x=>g[x[0]]).map(x=>{const m=g[x[0]],r=11*s,id="c"+W.indexOf(x);return`<g data-a="wsel" data-w="${esc(x[0])}"><clipPath id="${id}"><circle cx="${X(x[2])}" cy="${Y(x[1])}" r="${r}"/></clipPath>${m[0].avatar?`<image href="${esc(m[0].avatar)}" x="${X(x[2])-r}" y="${Y(x[1])-r}" width="${2*r}" height="${2*r}" clip-path="url(#${id})"/>`:`<circle cx="${X(x[2])}" cy="${Y(x[1])}" r="${r}" fill="#1d7a5a"/>`}<circle cx="${X(x[2])}" cy="${Y(x[1])}" r="${r}" fill="none" stroke="#fff" stroke-width="${2*s}"/>${m.length>1?`<circle cx="${X(x[2])+r}" cy="${Y(x[1])-r}" r="${7*s}" fill="#b4531a"/><text x="${X(x[2])+r}" y="${Y(x[1])-r+3.5*s}" font-size="${10*s}" fill="#fff" text-anchor="middle">${m.length}</text>`:""}<text x="${X(x[2])}" y="${Y(x[1])+r+11*s}" font-size="${9*s}" text-anchor="middle" fill="var(--tx)">${esc(x[0])}</text></g>`}).join("");
- const dots=W.map(x=>`<circle cx="${X(x[2])}" cy="${Y(x[1])}" r="${2*s}" fill="var(--mu)" opacity=".5"/>`).join("");
- const sel=S.wsel&&g[S.wsel]?`<div class="card"><h3>📍 ${esc(S.wsel)}</h3>${g[S.wsel].map(p=>`<div class="row">${av(p,32)}${esc(p.name)}</div>`).join("")}</div>`:`<div class="mu" style="margin-top:6px">Chạm vào một ghim để xem ai ở phường đó.</div>`;
- return `<div class="card"><h3>🗺️ Bản đồ thành viên</h3><div style="display:flex;gap:8px;margin-bottom:8px"><button class="s" data-a="zm" data-d="-1">−</button><button class="s" data-a="zm" data-d="1">＋</button><span class="mu" style="align-self:center">Sơ đồ ước lượng vị trí các phường (không có nền bản đồ đường phố)</span></div><div id="mapw"><svg viewBox="0 0 ${w} ${h}" width="${100*z}%" style="display:block">${dots}${pins}</svg></div>${sel}</div>`}
+const lastSeen=()=>{try{return +localStorage.getItem("seen")||0}catch(e){return 0}};
+const markSeen=()=>{try{localStorage.setItem("seen",Date.now())}catch(e){}};
+const newer=m=>Date.parse(m.created_at)>lastSeen()&&m.user_id!==S.me;
+const unread=()=>(S.M||[]).filter(newer).length;
+const mentionsMe=()=>(S.M||[]).filter(m=>newer(m)&&(m.mentions||[]).includes(S.me)).length;
+const reEsc=x=>x.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+function msgHtml(){const ns=Object.values(S.P).map(p=>esc(p.name)).filter(Boolean).sort((a,b)=>b.length-a.length),re=ns.length?new RegExp("@("+ns.map(reEsc).join("|")+")","g"):null;
+ return (S.M||[]).map(m=>{const p=S.P[m.user_id],d=new Date(m.created_at);let b=esc(m.body);if(re)b=b.replace(re,x=>`<span class="mn">${x}</span>`);
+ return `<div class="msg ${m.user_id===S.me?"mine":""}">${av(p,30)}<div class="grow"><div class="mu"><b>${esc(p?.name||"Ẩn danh")}</b> · ${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")} ${d.getDate()}/${d.getMonth()+1}</div><div>${b}</div></div></div>`}).join("")}
+function updateMsgs(f){const el=$("#msgs");if(!el)return;const bot=f||el.scrollHeight-el.scrollTop-el.clientHeight<80;el.innerHTML=msgHtml()||'<div class="mu">Chưa có tin nhắn. Hãy mở đầu cuộc trò chuyện!</div>';if(bot)el.scrollTop=el.scrollHeight;markSeen()}
+function chatv(){return `<div class="card"><h3>💬 Trò chuyện nhóm</h3><div id="msgs"></div><div id="sg" style="margin-top:6px"></div><div style="display:flex;gap:8px"><input id="ci" placeholder="Nhắn tin, gõ @ để nhắc tên…" autocomplete="off" style="margin:0"><button class="p" data-a="send">Gửi</button></div></div>`}
+function chatInit(){updateMsgs(true)}
+async function sendMsg(){const i=$("#ci"),t=i.value.trim();if(!t)return;const ids=Object.entries(S.P).filter(([id,p])=>p.name&&t.includes("@"+p.name)).map(([id])=>id);i.value="";$("#sg").innerHTML="";
+ try{await ck(sb.from("messages").insert({user_id:S.me,body:t,mentions:ids}));await load();updateMsgs(true)}catch(err){i.value=t;toast("Lỗi: "+(err.message||err.code))}}
+function tagName(n){const i=$("#ci"),pos=i.selectionStart,v=i.value,b=v.slice(0,pos).replace(/@([^@\n]*)$/,()=>"@"+n+" ");i.value=b+v.slice(pos);i.focus();i.setSelectionRange(b.length,b.length);$("#sg").innerHTML=""}
+document.addEventListener("input",e=>{if(e.target.id!=="ci")return;const v=e.target.value.slice(0,e.target.selectionStart),m=v.match(/@([^@\n]*)$/),sg=$("#sg");if(!m){sg.innerHTML="";return}const q=m[1].toLowerCase();sg.innerHTML=Object.entries(S.P).filter(([id,p])=>id!==S.me&&(p.name||"").toLowerCase().includes(q)).slice(0,5).map(([id,p])=>`<button class="s" data-a="tag" data-n="${esc(p.name)}" style="margin:0 6px 6px 0">@${esc(p.name)}</button>`).join("")});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="ci"){e.preventDefault();sendMsg()}});
+document.addEventListener("pointerdown",e=>{if(e.target.closest('[data-a="tag"],[data-a="send"]'))e.preventDefault()});
+function wardGroups(){const g={};Object.values(S.P).forEach(p=>{if(p.ward)(g[p.ward]=g[p.ward]||[]).push(p)});return g}
+const SEL0="Chạm vào ảnh trên bản đồ để xem ai ở phường đó.";
+function selHtml(){const g=wardGroups();return S.wsel&&g[S.wsel]?`<h3>📍 ${esc(S.wsel)}</h3>`+g[S.wsel].map(p=>`<div class="row">${av(p,32)}${esc(p.name)}</div>`).join(""):SEL0}
+function mapv(){return `<div class="card"><h3>🗺️ Bản đồ thành viên</h3><div id="lm"></div><div id="sel" class="mu" style="margin-top:8px"></div></div>`}
+let LM=null;
+function initMap(){if(typeof L==="undefined"){$("#lm").innerHTML='<div class="mu" style="padding:12px">Không tải được thư viện bản đồ.</div>';return}
+ if(LM){try{LM.remove()}catch(e){}LM=null}
+ const m=LM=L.map("lm").setView(S.view?S.view.c:[21.03,105.83],S.view?S.view.z:11);
+ L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(m);
+ const g=wardGroups(),pts=[];
+ W.filter(x=>g[x[0]]).forEach(x=>{const mem=g[x[0]],a=mem[0].avatar,h=`<div style="position:relative;width:42px;height:42px"><div style="width:42px;height:42px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 5px #0006;overflow:hidden;background:#1d7a5a;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">${a?`<img src="${esc(a)}" style="width:100%;height:100%;object-fit:cover">`:esc((mem[0].name||"?")[0].toUpperCase())}</div>${mem.length>1?`<span style="position:absolute;right:-4px;top:-4px;background:#b4531a;color:#fff;border-radius:99px;font-size:11px;padding:0 5px">${mem.length}</span>`:""}</div>`;
+  L.marker([x[1],x[2]],{icon:L.divIcon({html:h,className:"",iconSize:[42,42],iconAnchor:[21,21]})}).addTo(m).on("click",()=>{S.wsel=x[0];$("#sel").innerHTML=selHtml()});pts.push([x[1],x[2]])});
+ if(!S.view&&pts.length)m.fitBounds(pts,{padding:[40,40],maxZoom:13});
+ m.on("moveend",()=>{const c=m.getCenter();S.view={c:[c.lat,c.lng],z:m.getZoom()}});
+ $("#sel").innerHTML=selHtml()}
 function votev(){const my=S.V[S.me]?.choices||{};
  const form=S.admin?`<details class="card"><summary><b>＋ Tạo bình chọn mới</b></summary><div style="margin-top:8px"><label>Loại</label><select id="pk"><option value="time">Thời gian</option><option value="place">Địa điểm</option></select><label>Tiêu đề</label><input id="pt" placeholder="VD: Họp mặt tháng 11"><label>Các lựa chọn (mỗi dòng một mục)</label><textarea id="po" rows="4"></textarea><button class="p" data-a="newpoll">Đăng bình chọn</button></div></details>`:"";
  const list=[...S.polls].sort((a,b)=>(a.closed?1:0)-(b.closed?1:0)||(b.createdAt||0)-(a.createdAt||0)).map(pl=>{const c=cnt(pl),tot=Object.values(c).reduce((a,b)=>a+b,0)||1;
@@ -66,13 +95,13 @@ function votev(){const my=S.V[S.me]?.choices||{};
 function me(){const p=S.P[S.me]||{};return `<div class="card"><h3>Hồ sơ của bạn</h3><div class="row">${av(p,64)}<button class="s" data-a="pick">Đổi ảnh đại diện</button><input type="file" id="fi" accept="image/*" hidden></div>
  <label>Tên hiển thị</label><input id="fn" value="${esc(p.name)}"><label>Phường (địa giới mới)</label><select id="fw"><option value="">— Chọn phường —</option>${[...W].sort((a,b)=>a[0].localeCompare(b[0],"vi")).map(x=>`<option ${p.ward===x[0]?"selected":""}>${esc(x[0])}</option>`).join("")}</select>
  <label>Ngày sinh</label><input type="date" id="fb" value="${esc(p.bday)}"><label><input type="checkbox" id="fh" ${p.hideYear?"checked":""}>Ẩn năm sinh, chỉ hiện ngày/tháng</label><br><br><button class="p" data-a="save">Lưu hồ sơ</button> <button class="s" data-a="logout">Đăng xuất</button></div>`}
-function render(f){const a=document.activeElement;if(!f&&a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&a.type!=="range")return;
+function render(f){const a=document.activeElement;if(!f&&a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&a.type!=="range"){if(S.tab==="chat")updateMsgs();return}
  if(!S.me){$("#nav").innerHTML="";$("#hello").textContent="";$("#app").innerHTML=S.cfg===false?'<div class="card alert">Chưa cấu hình: mở index.html, điền SB_URL và SB_KEY.</div>':`<div class="card"><h3>Đăng nhập / đăng ký</h3><label>Email</label><input id="ae" type="email" autocomplete="email"><label>Mật khẩu (tối thiểu 6 ký tự)</label><input id="ap" type="password" autocomplete="current-password"><button class="p" data-a="login">Đăng nhập</button> <button class="s" data-a="signup">Đăng ký</button></div>`;return}
- const T=[["home","🏠","Tổng quan"],["map","🗺️","Bản đồ"],["vote","🗳️","Vote"],["me","👤","Hồ sơ"]];
- $("#nav").innerHTML=T.map(t=>`<button class="${S.tab===t[0]?"on":""}" data-a="tab" data-t="${t[0]}"><b>${t[1]}</b>${t[2]}</button>`).join("");
+ const T=[["home","🏠","Tổng quan"],["map","🗺️","Bản đồ"],["vote","🗳️","Vote"],["chat","💬","Chat"],["me","👤","Hồ sơ"]];
+ $("#nav").innerHTML=T.map(t=>`<button class="${S.tab===t[0]?"on":""}" data-a="tab" data-t="${t[0]}"><b>${t[1]}</b>${t[2]}${t[0]==="chat"&&S.tab!=="chat"&&unread()?" ·"+unread():""}</button>`).join("");
  $("#hello").textContent=S.P[S.me]?"Xin chào, "+S.P[S.me].name+(S.admin?" · quản trị":""):"";
  const sc=$("#mapw")?.scrollLeft,st=$("#mapw")?.scrollTop;
- $("#app").innerHTML={home,map:mapv,vote:votev,me}[S.tab]();
+ $("#app").innerHTML={home,map:mapv,vote:votev,me,chat:chatv}[S.tab]();if(S.tab==="map")initMap();if(S.tab==="chat")chatInit();
  if($("#mapw")&&sc!=null){$("#mapw").scrollLeft=sc;$("#mapw").scrollTop=st}}
 const uid=()=>Math.random().toString(36).slice(2,9);
 let img=null,cz={x:0,y:0,s:1};
@@ -80,11 +109,13 @@ function drawCrop(){const c=$("#cv").getContext("2d"),b=Math.max(240/img.width,2
 const ck=async r=>{const x=await r;if(x.error)throw x.error;return x};
 document.addEventListener("click",async e=>{const t=e.target.closest("[data-a]");if(!t)return;const a=t.dataset.a,d=t.dataset,up=o=>ck(sb.from("profiles").upsert({id:S.me,...o}));
  try{
- if(a==="tab"){S.tab=d.t;render(1)}
+ if(a==="tab"){S.tab=d.t;if(d.t==="chat")markSeen();render(1)}
  else if(a==="zm"){S.zoom=Math.min(6,Math.max(1,S.zoom+ +d.d));render(1)}
  else if(a==="wsel"){S.wsel=d.w;render(1)}
  else if(a==="pick")$("#fi").click();
  else if(a==="cropx")$("#crop").style.display="none";
+ else if(a==="send")await sendMsg();
+ else if(a==="tag")tagName(d.n);
  else if(a==="login"){await ck(sb.auth.signInWithPassword({email:$("#ae").value.trim(),password:$("#ap").value}))}
  else if(a==="signup"){const r=await ck(sb.auth.signUp({email:$("#ae").value.trim(),password:$("#ap").value}));if(!r.data.session)toast("Kiểm tra email để xác nhận tài khoản")}
  else if(a==="logout"){await sb.auth.signOut()}
@@ -101,13 +132,14 @@ document.addEventListener("change",e=>{if(e.target.id!=="fi"||!e.target.files[0]
 document.addEventListener("input",e=>{if(e.target.id==="zm"){cz.s=+e.target.value;drawCrop()}});
 let drag=null;const cv=$("#cv");cv.onpointerdown=e=>{drag=[e.clientX,e.clientY];cv.setPointerCapture(e.pointerId)};cv.onpointermove=e=>{if(!drag)return;cz.x+=e.clientX-drag[0];cz.y+=e.clientY-drag[1];drag=[e.clientX,e.clientY];drawCrop()};cv.onpointerup=()=>drag=null;
 let sb;
-async function load(){const[p,pl,v,ad]=await Promise.all([sb.from("profiles").select("*"),sb.from("polls").select("*"),sb.from("votes").select("*"),sb.from("admins").select("user_id").eq("user_id",S.me)]);
+async function load(){const[p,pl,v,ad,ms]=await Promise.all([sb.from("profiles").select("*"),sb.from("polls").select("*"),sb.from("votes").select("*"),sb.from("admins").select("user_id").eq("user_id",S.me),sb.from("messages").select("*").order("created_at",{ascending:false}).limit(100)]);
  S.P={};(p.data||[]).forEach(r=>S.P[r.id]={name:r.name,ward:r.ward,bday:r.bday,hideYear:r.hide_year,avatar:r.avatar});
  S.polls=(pl.data||[]).map(r=>({id:r.id,title:r.title,kind:r.kind,options:r.options,closed:r.closed,winner:r.winner,createdAt:Date.parse(r.created_at),closedAt:r.closed_at?Date.parse(r.closed_at):0}));
  S.V={};(v.data||[]).forEach(r=>{(S.V[r.user_id]=S.V[r.user_id]||{choices:{}}).choices[r.poll_id]=r.option_id});
- S.admin=!!(ad.data&&ad.data.length)}
+ S.admin=!!(ad.data&&ad.data.length);S.M=(ms.data||[]).reverse()}
 async function start(s){if(!s){S.me=null;return render(1)}S.me=s.user.id;await load();if(!S.P[S.me])S.tab="me";render(1)}
 if(!SB_URL||!SB_KEY){S.cfg=false;render(1)}else{sb=supabase.createClient(SB_URL,SB_KEY);
+ sb.channel("msgs").on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},()=>{if(S.me)load().then(()=>{if(S.tab!=="map")render()})}).subscribe();
  sb.auth.onAuthStateChange((ev,s)=>setTimeout(()=>start(s),0));
- setInterval(async()=>{if(S.me){await load();render()}},20000)}
+ setInterval(async()=>{if(S.me){await load();if(S.tab!=="map")render()}},20000)}
 </script></body></html>
