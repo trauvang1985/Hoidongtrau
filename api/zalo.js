@@ -38,11 +38,13 @@ function settle(members, exps) {
 
 async function send(chatId, text) {
   for (let i = 0; i < text.length; i += 1900) {
-    const r = await fetch(`${BASE}/bot${process.env.ZALO_BOT_TOKEN}/sendMessage`, {
+    const r = await fetch(`${BASE}/bot${(process.env.ZALO_BOT_TOKEN || "").trim()}/sendMessage`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chatId, text: text.slice(i, i + 1900) }),
     });
-    if (!r.ok) console.error("sendMessage", r.status, await r.text());
+    const t = await r.text();
+    if (!r.ok || /"ok"\s*:\s*false/.test(t)) console.error("SEND FAIL", r.status, t.slice(0, 300));
+    else console.log("SEND OK", r.status);
   }
 }
 
@@ -68,6 +70,7 @@ const curEvent = () => one(sb.from("events").select("*").eq("closed", false).ord
 
 async function handle(m) {
   const O = m.text.trim().split(/\s+/), N = O.map(norm), i = N.findIndex(t => CMD[t]);
+  if (N.includes("ping")) return "pong 🏓 Bot đang hoạt động.";
   if (i < 0) return HELP;
   const cmd = CMD[N[i]], arg = O.slice(i + 1), zid = String(m.from.id);
 
@@ -177,6 +180,11 @@ async function handle(m) {
 
 module.exports = async (req, res) => {
   if (req.method === "GET") { // đăng ký webhook: /api/zalo?setup=<ZALO_WEBHOOK_SECRET>
+    if (req.query.me !== undefined) { // kiểm tra token: /api/zalo?me=<ZALO_WEBHOOK_SECRET>
+      if (String(req.query.me).trim() !== (process.env.ZALO_WEBHOOK_SECRET || "").trim()) return res.status(200).send("SAI secret");
+      const r = await fetch(`${BASE}/bot${(process.env.ZALO_BOT_TOKEN || "").trim()}/getMe`);
+      return res.status(200).send("getMe (" + r.status + "): " + (await r.text()));
+    }
     if (req.query.setup === undefined) return res.status(200).send("ok");
     const sec = (process.env.ZALO_WEBHOOK_SECRET || "").trim(), tok = (process.env.ZALO_BOT_TOKEN || "").trim();
     const miss = ["ZALO_BOT_TOKEN", "ZALO_WEBHOOK_SECRET", "SUPABASE_URL", "SUPABASE_SERVICE_KEY"].filter(k => !(process.env[k] || "").trim());
@@ -191,11 +199,12 @@ module.exports = async (req, res) => {
   if (req.headers["x-bot-api-secret-token"] !== (process.env.ZALO_WEBHOOK_SECRET || "").trim()) return res.status(403).json({ message: "Unauthorized" });
   try {
     const r = req.body && req.body.result, m = r && r.message;
+    console.log("WEBHOOK", r && r.event_name, m && m.chat && m.chat.chat_type, JSON.stringify((m && m.text) || "").slice(0, 80));
     if (r && r.event_name === "message.text.received" && m && m.text && !(m.from && m.from.is_bot)) {
       const out = await handle(m);
       if (out) await send(m.chat.id, out);
     }
-  } catch (e) { console.error(e); try { const m = req.body.result.message; await send(m.chat.id, "⚠️ Bot gặp lỗi, thử lại sau nhé."); } catch (_) {} }
+  } catch (e) { console.error(e); try { const m = req.body.result.message; await send(m.chat.id, "⚠️ Lỗi: " + String((e && e.message) || e).slice(0, 150)); } catch (_) {} }
   res.status(200).json({ message: "Success" });
 };
 module.exports._t = { money, settle };
