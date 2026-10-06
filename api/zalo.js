@@ -197,14 +197,23 @@ module.exports = async (req, res) => {
     return res.status(200).send("Zalo trả về (" + r.status + "): " + (await r.text()));
   }
   if (req.headers["x-bot-api-secret-token"] !== (process.env.ZALO_WEBHOOK_SECRET || "").trim()) return res.status(403).json({ message: "Unauthorized" });
+  let body = req.body;
+  if (Buffer.isBuffer(body)) body = body.toString("utf8");
+  if (typeof body === "string") { try { body = JSON.parse(body); } catch (e) { body = {}; } }
+  body = body || {};
+  console.log("BODY", JSON.stringify(body).slice(0, 600));
+  let m = null;
   try {
-    const r = req.body && req.body.result, m = r && r.message;
-    console.log("WEBHOOK", r && r.event_name, m && m.chat && m.chat.chat_type, JSON.stringify((m && m.text) || "").slice(0, 80));
-    if (r && r.event_name === "message.text.received" && m && m.text && !(m.from && m.from.is_bot)) {
+    const r = body.result || body;
+    m = r.message || (r.text ? r : null);
+    if (m && m.text && !(m.from && m.from.is_bot) && m.chat && m.chat.id) {
       const out = await handle(m);
       if (out) await send(m.chat.id, out);
     }
-  } catch (e) { console.error(e); try { const m = req.body.result.message; await send(m.chat.id, "⚠️ Lỗi: " + String((e && e.message) || e).slice(0, 150)); } catch (_) {} }
+  } catch (e) {
+    console.error(e);
+    try { if (m && m.chat) await send(m.chat.id, "⚠️ Lỗi: " + String((e && e.message) || e).slice(0, 150)); } catch (_) {}
+  }
   res.status(200).json({ message: "Success" });
 };
 module.exports._t = { money, settle };
