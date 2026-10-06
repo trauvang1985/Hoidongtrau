@@ -177,16 +177,18 @@ async function handle(m) {
 
 module.exports = async (req, res) => {
   if (req.method === "GET") { // đăng ký webhook: /api/zalo?setup=<ZALO_WEBHOOK_SECRET>
-    if (req.query.setup && req.query.setup === process.env.ZALO_WEBHOOK_SECRET) {
-      const r = await fetch(`${BASE}/bot${process.env.ZALO_BOT_TOKEN}/setWebhook`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: `https://${req.headers.host}/api/zalo`, secret_token: process.env.ZALO_WEBHOOK_SECRET }),
-      });
-      return res.status(200).send(await r.text());
-    }
-    return res.status(200).send("ok");
+    if (req.query.setup === undefined) return res.status(200).send("ok");
+    const sec = (process.env.ZALO_WEBHOOK_SECRET || "").trim(), tok = (process.env.ZALO_BOT_TOKEN || "").trim();
+    const miss = ["ZALO_BOT_TOKEN", "ZALO_WEBHOOK_SECRET", "SUPABASE_URL", "SUPABASE_SERVICE_KEY"].filter(k => !(process.env[k] || "").trim());
+    if (miss.length) return res.status(200).send("THIẾU biến: " + miss.join(", ") + ". Kiểm tra tên biến, rồi Redeploy.");
+    if (String(req.query.setup).trim() !== sec) return res.status(200).send(`SAI secret. Bạn nhập ${String(req.query.setup).length} ký tự, trên Vercel có ${sec.length} ký tự.`);
+    const r = await fetch(`${BASE}/bot${tok}/setWebhook`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: `https://${req.headers.host}/api/zalo`, secret_token: sec }),
+    });
+    return res.status(200).send("Zalo trả về (" + r.status + "): " + (await r.text()));
   }
-  if (req.headers["x-bot-api-secret-token"] !== process.env.ZALO_WEBHOOK_SECRET) return res.status(403).json({ message: "Unauthorized" });
+  if (req.headers["x-bot-api-secret-token"] !== (process.env.ZALO_WEBHOOK_SECRET || "").trim()) return res.status(403).json({ message: "Unauthorized" });
   try {
     const r = req.body && req.body.result, m = r && r.message;
     if (r && r.event_name === "message.text.received" && m && m.text && !(m.from && m.from.is_bot)) {
@@ -197,4 +199,3 @@ module.exports = async (req, res) => {
   res.status(200).json({ message: "Success" });
 };
 module.exports._t = { money, settle };
-                                                                 
