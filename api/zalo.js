@@ -63,7 +63,39 @@ const HELP = `🤖 Bot Hội Pink Pumper
 • ketthuc: đóng sự kiện
 • stk <ngân hàng> <số tài khoản>: lưu tài khoản nhận tiền
 • lienket <mã>: liên kết Zalo với tài khoản web (nhắn riêng cho bot)
+• Nhắn chào hỏi hoặc chúc mừng sinh nhật để bot trò chuyện
 Trong nhóm hãy @ tên bot rồi gõ lệnh.`;
+
+// ===== Trò chuyện phiếm (miễn phí, không dùng AI) =====
+function vnNow() {
+  const p = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
+  const g = t => +p.find(x => x.type === t).value;
+  return { h: g("hour") % 24, min: g("minute"), d: g("day"), mo: g("month") };
+}
+const pick = a => a[Math.floor(Math.random() * a.length)];
+async function chat(m, N) {
+  const now = vnNow(), t = N.join(" ");
+  let profs = [], me = null;
+  try { profs = await one(sb.from("profiles").select("id,name,bday")); } catch (e) {}
+  try {
+    const lk = await one(sb.from("zalo_links").select("user_id").eq("zalo_id", String(m.from.id)).maybeSingle());
+    if (lk) me = profs.find(p => p.id === lk.user_id);
+  } catch (e) {}
+  const name = (me && me.name) || m.from.display_name || "bạn";
+  const today = profs.filter(p => p.bday && +p.bday.slice(5, 7) === now.mo && +p.bday.slice(8, 10) === now.d).map(p => p.name);
+  const has = (...w) => w.some(x => t.includes(x));
+  if (has("sinh nhat", "hpbd", "happy birthday", "birthday")) {
+    const named = profs.filter(p => p.name && (" " + t + " ").includes(" " + norm(p.name) + " ")).map(p => p.name), who = named.length ? named : today;
+    return `🎂🎉 ${pick(["Chúc mừng sinh nhật", "Happy birthday", "Sinh nhật vui vẻ"])}${who.length ? " " + who.join(", ") : ""}! ${pick(["Chúc luôn khỏe mạnh, hạnh phúc và thật nhiều niềm vui nhé!", "Tuổi mới thật nhiều sức khỏe, may mắn và bình an!", "Tuổi mới vui hơn, trẻ hơn và đầy năng lượng nhé!"])} 🥳`;
+  }
+  const greet = /(^| )(xin chao|chao|hello|hi|hey|alo|halo)( |$)/.test(t);
+  const bd = greet && today.length ? `\n🎂 Hôm nay là sinh nhật của ${today.join(", ")}, nhớ gửi lời chúc nhé!` : "";
+  if (now.h < 5) return "Má ơi cày đêm vừa thôi!";
+  if (now.h < 8 || (now.h === 8 && now.min < 30)) return `☀️ Chào ngày mới, ${name}!${bd}`;
+  if (now.h >= 23) return "🌙 Ngủ đi bạn ơi!";
+  if (greet) return `👋 ${pick(["Chào", "Xin chào", "Hello"])} ${name}! Chúc bạn một ngày vui vẻ.${bd}`;
+  return "Mình chưa hiểu ý bạn 😅 Gõ “help” để xem các lệnh nhé.";
+}
 
 const one = async q => { const { data, error } = await q; if (error) throw error; return data; };
 const curEvent = () => one(sb.from("events").select("*").eq("closed", false).order("created_at", { ascending: false }).limit(1).maybeSingle());
@@ -71,7 +103,7 @@ const curEvent = () => one(sb.from("events").select("*").eq("closed", false).ord
 async function handle(m) {
   const O = m.text.trim().split(/\s+/), N = O.map(norm), i = N.findIndex(t => CMD[t]);
   if (N.includes("ping")) return "pong 🏓 Bot đang hoạt động.";
-  if (i < 0) return HELP;
+  if (i < 0) return chat(m, N);
   const cmd = CMD[N[i]], arg = O.slice(i + 1), zid = String(m.from.id);
 
   if (cmd === "help") return HELP;
@@ -207,6 +239,7 @@ module.exports = async (req, res) => {
     const r = body.result || body;
     m = r.message || (r.text ? r : null);
     if (m && m.text && !(m.from && m.from.is_bot) && m.chat && m.chat.id) {
+      try { await sb.from("bot_chats").upsert({ chat_id: String(m.chat.id), chat_type: String(m.chat.chat_type || "PRIVATE").toUpperCase(), seen_at: new Date().toISOString() }); } catch (e) {}
       const out = await handle(m);
       if (out) await send(m.chat.id, out);
     }
@@ -216,4 +249,4 @@ module.exports = async (req, res) => {
   }
   res.status(200).json({ message: "Success" });
 };
-module.exports._t = { money, settle };
+module.exports._t = { money, settle, handle };
